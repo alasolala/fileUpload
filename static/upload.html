@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>upload file</title>
+    <style>
+        h3{
+            text-align: center;
+            margin: 50px 0 50px;
+            color: #666;
+        }
+        .upload-container{
+            width: 380px;
+            margin: 0 auto;
+        }
+        .form-item{
+            height: 60px;
+        }
+        .drag{
+            display: inline-block;
+            line-height: 150px;
+            text-align: center;
+            width: 300px;
+            color: #666;
+            background: #eee;
+            font-size: 14px;
+            margin-left: 10px;
+            margin-bottom: 40px;
+        }
+        #progress{
+            color: cadetblue;
+        }
+    </style>
+</head>
+<body>
+    <h3>上传文件</h3>
+    <div class="upload-container">
+        <div class="form-item">
+            <label for="file">
+                上传文件：<input type="file" id="file" multiple>
+            </label>
+        </div>
+        <div class="form-item">
+            <button>上传</button>
+        </div>
+        <div>
+            <p>上传进度：<span id="progress">0%</span></p>
+        </div>
+    </div>
+    <script src="./js/util.js"></script>
+    <script>
+        var formData,
+            fileInput = $('#file'),
+            btn = $('button')
+
+        function addFile(formdata,files){
+            if (files.length > 0) {
+                for (let i = 0; i < files.length; i++) {
+                    formdata.append('upload-file', files[i]);
+                }
+            }
+        }
+
+        fileInput.addEventListener('change', function(ev){
+            if(!formData){
+                formData = new FormData()
+            }
+            var files = ev.target.files
+            addFile(formData,files)
+        })
+    
+        btn.addEventListener('click',function(){
+            if(!formData){
+                alert('请添加文件')
+            }
+            console.time()
+            uploadAjax('POST','http://localhost:9000/uploadFile',formData,{
+                progressCallback: function(loaded,total){
+                    var percent = (loaded / total) * 100
+                    $('#progress').innerText = percent.toFixed(2) + '%'
+                }
+            }).then(function(res){
+                window.location = "/index.html"
+                console.timeEnd()
+            })
+        })
+
+    </script>
+</body>
+</html>

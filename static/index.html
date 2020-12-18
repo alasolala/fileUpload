@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>file system</title>
+    <style>
+        body{
+            padding-top: 30px;
+        }
+        h2{
+            text-align: center;
+            margin-bottom: 50px;
+            color: #666;
+        }
+        .empty{
+            text-align: center;
+            display: none;
+            margin-top: 100px;
+        }
+        .upload{
+            text-align: right;
+            width: 580px;
+            margin: 0 auto 20px;
+        }
+        a{
+            color:cornflowerblue;
+            text-decoration: none;
+            margin-left: 20px;
+        }
+        .container{
+            width: 580px;
+            margin: 0 auto;
+            border: 1px solid oldlace;
+            border-bottom: none;
+        }
+        .container p {
+            color: #666;
+            padding: 5px 30px 15px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            border-bottom: 1px solid oldlace;
+        }
+        .size{
+            font-size: 12px;
+        }
+        .download{
+            font-size: 14px;
+            cursor: pointer;
+            color: lightskyblue;
+            border: 1px solid lightskyblue;
+            padding: 4px 10px;
+        }
+        
+    </style>
+</head>
+<body>
+    <h2>hi，欢迎来到文件管理系统！</h2>
+    <p class="upload">
+        <a href="./upload.html">上传文件</a>
+        <a href="./fragmentUpload.html">分片上传文件</a>
+    </p>
+    <div class="empty">文件夹是空的, 去上传吧!</div>
+    <div class="container"></div>
+    <script src="./js/util.js"></script>
+    <script>
+        function getFileList(){
+            Ajax('GET','http://localhost:9000/getFileList').then(function(res){
+                var files = res.files
+                if(files.length > 0){                   
+                    files.forEach(function(item){
+                        var temp = document.createElement('p');
+                        temp.innerHTML = 
+                        `<span>${item.name}  
+                            <span class="size">(${sizeUnit(item.size)})</span>
+                        </span>
+                        <a href="${item.url}" class="download">下载</a>`;
+                        container.appendChild(temp);
+                    })
+                }else{
+                    $('.empty').style.display = "block"
+                    $('.container').style.display = "none"
+                }
+            },function(err){
+                console.log(err)
+            })
+        }
+        function sizeUnit(size){
+            if(size > 1024 * 1024 *1024){//GB
+                return (size/(1024 * 1024 *1024)).toFixed(2) + 'GB'
+            }
+            if(size > 1024 * 1024){//MB
+                return (size/(1024 * 1024)).toFixed(2) + 'MB'
+            }
+            if(size > 1024){//KB
+                return (size/1024).toFixed(2) + 'KB'
+            }
+            return size+ 'B'
+        }
+        var container = $('.container')
+        // container.addEventListener('click',function(ev){
+        //     var classlist = ev.target.classList
+        //     if(Array.prototype.indexOf.call(classlist,'candownload') > -1){
+        //         var url = ev.target.getAttribute('data-url')
+        //         classlist.remove('candownload')
+        //         downloadAjax('GET','http://localhost:9000/downloadFile',{
+        //             data:{
+        //                 picUrl: url
+        //             },
+        //             fileName : ev.target.getAttribute('data-name'),
+        //             fileType : 'jpg',
+        //             progressCallback: function(loaded,total){
+        //                 var p = (loaded/total)*100
+        //                 ev.target.innerText = p.toFixed(2) + '%'
+        //                 console.log('progress')
+        //             },
+        //             successCallback: function(){
+        //                 classlist.add('candownload')
+        //                 ev.target.innerText = '下载'
+        //             },
+        //             failCallback: function(){
+        //                 classlist.add('candownload')
+        //             }
+        //         }).then(function(res){
+        //             // console.log(res)
+        //             window.open(res)
+        //         })
+
+        //     }
+        // })
+        getFileList()
+
+
+
+    </script>
+</body>
+</html>

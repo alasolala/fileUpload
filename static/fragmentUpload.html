@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>upload file</title>
+    <style>
+        h3{
+            text-align: center;
+            margin: 50px 0 50px;
+            color: #666;
+        }
+        .upload-container{
+            width: 380px;
+            margin: 0 auto;
+        }
+        .form-item{
+            height: 60px;
+        }
+    </style>
+</head>
+<body>
+    <h3>文件分片上传</h3>
+    <div class="upload-container">
+        <div class="form-item">
+            <label for="file">
+                上传文件：<input type="file" id="file">
+            </label>
+        </div>
+        <div class="form-item">
+            <button>上传</button>
+            <span class="progress"></span>
+        </div>
+    </div>
+    <!-- <script type="text/javascript" src="./js/spark-md5.min.js"></script> -->
+    <script src="./js/util.js"></script>
+    <script>
+        const CHUNK_SIZE = 1024 * 1024 * 50; // 100MB
+
+        var fileInput = $('#file'),
+            btn = $('button'),
+            progressBar = $('.progress'),
+            FileMd5,
+            ifUpload = false,
+            uploading = false,
+            interval = null,
+            worker,
+            chunkList,
+            fileSize,
+            fileName
+
+        //生成文件切片
+        function createFileChunk(file, size=CHUNK_SIZE) {
+            var fileChunkList = []
+            var cur = 0,i=0 
+            while (cur < file.size) {
+                fileChunkList.push({
+                    file: file.slice(cur, cur + size),
+                    idx: i
+                })
+                cur += size
+                i++
+            }
+            return fileChunkList
+        }
+
+        function addRequest(chunkList,hash){
+            return chunkList.map(function(chunk){
+                var formData = new FormData()
+                formData.append('data', chunk.file)
+                formData.append('index', chunk.idx)
+                formData.append('hash', hash)
+                return uploadAjax('POST','http://localhost:9000/uploadBigFile',formData,{
+                        progressCallback: function(loaded,total){
+                            chunk.loaded = loaded
+                        }
+                })
+            })
+        }
+        function mergeRequest(hash,name){
+            Ajax('POST','http://localhost:9000/mergeFile',{
+                hash: hash,
+                name: name
+            }).then(function(res){
+                uploading = false
+                progressBar.innerText = '上传完成'
+                btn.innerText = "上传"
+                worker.terminate()
+                window.location = "/index.html"
+            },function(){
+                uploading = false
+                btn.innerText = "重新上传"
+            })
+        }
+        fileInput.addEventListener('change',function(e){
+            if(uploading){
+                return
+            } 
+            btn.innerText = "上传"
+            var file = e.target.files[0]
+            fileSize = file.size
+            fileName = file.name
+            chunkList = createFileChunk(file)
+            FileMd5 = undefined
+            var d = {
+                chunkList: chunkList
+            }
+
+            if(!worker){
+                worker = new Worker('./js/worker.js');
+            }else{
+                d.changeChunk = true
+            }
+            worker.postMessage(d);
+        
+            worker.onmessage = function (event) {
+                FileMd5 = event.data
+                if(ifUpload){
+                    Upload()
+                }
+            }
+        })
+        function setProgress(){
+            interval = setInterval(function(){
+                var loadedSum = 0
+                chunkList.forEach(item => {
+                    if(item.loaded){
+                        loadedSum += item.loaded
+                    }
+                });
+                var percent = loadedSum/fileSize >= 1 ? 1: loadedSum/fileSize
+                progressBar.innerText = (percent * 100).toFixed(2) + '%'
+            },1000)
+        }
+        function clearProgress(){
+            clearInterval(interval)
+        }
+        function Upload(){
+            uploading = true
+            ifUpload = false
+            Ajax('POST','http://localhost:9000/checkFile',{
+                name: FileMd5
+            }).then(function(res){
+                var chunks = res.data.chunks
+                var list = chunkList
+                if(chunks.length > 0){
+                    var newList = []
+                    chunks.sort(function(a,b){return a.idx-b.idx})
+                    for(var i=0,j=0; i<chunkList.length; i++){
+                        if(chunks[j] == chunkList[i].idx){
+                            j++
+                        }else{
+                            newList.push(chunkList[i])
+                        }
+                    } 
+                    list = newList
+                }
+                setProgress()
+                Promise.all(addRequest(list,FileMd5)).then(function(res){
+                    clearProgress()
+                    mergeRequest(FileMd5,fileName)
+                },function(err){
+                    uploading = false
+                    btn.innerText = "重新上传"
+                })
+                
+                
+            })
+        }
+        btn.addEventListener('click',function(){
+            if(uploading) return 
+            btn.innerText = "上传中"
+            if(!FileMd5){
+                ifUpload = true
+                return
+            }else{
+                Upload()
+            }
+            
+   
+        })
+
+    </script>
+</body>
+</html>
